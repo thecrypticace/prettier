@@ -79,7 +79,7 @@ function resolveParser({ plugins, parser }) {
 async function resolveVisitors(plugins, astFormat) {
   let visitors = getVisitorsByAstFormat(plugins, astFormat);
   visitors = await Promise.all(visitors.map(initVisitor));
-  return visitors.filter((visitor) => visitor !== undefined);
+  return visitors.flat();
 }
 
 function initParser(plugin, parserName) {

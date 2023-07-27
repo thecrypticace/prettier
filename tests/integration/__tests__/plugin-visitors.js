@@ -16,7 +16,7 @@ test("Visitors from the same plugin can modify the AST", async () => {
           parsers: {
             baz: { parse: () => ({ foo: "bar" }), astFormat: "baz-ast" },
           },
-          visitors: { "baz-ast": append("1") },
+          visitors: { "baz-ast": [append("1")] },
           printers: { "baz-ast": { print: (ast) => ast.getNode().foo } },
         },
       ],
@@ -43,8 +43,8 @@ test("Visitors from other plugins can modify the AST", async () => {
           },
           printers: { "baz-ast": { print: (ast) => ast.getNode().foo } },
         },
-        { visitors: { "baz-ast": append("1") } },
-        { visitors: { "baz-ast": append("2") } },
+        { visitors: { "baz-ast": [append("1")] } },
+        { visitors: { "baz-ast": [append("2")] } },
       ],
       parser: "baz",
     }),
@@ -65,8 +65,8 @@ test("Visitors can completely replace the AST", async () => {
             "baz-ast": { print: (ast) => JSON.stringify(ast.getNode()) },
           },
         },
-        { visitors: { "baz-ast": wrapIn("foo") } },
-        { visitors: { "baz-ast": wrapIn("bar") } },
+        { visitors: { "baz-ast": [wrapIn("foo")] } },
+        { visitors: { "baz-ast": [wrapIn("bar")] } },
       ],
       parser: "baz",
     }),
@@ -89,8 +89,8 @@ test("Visitors can modify existing options before being passed to the printer", 
           parsers: { baz: { parse: () => ({}), astFormat: "baz-ast" } },
           printers: { "baz-ast": { print: (_, opts) => opts.originalText } },
         },
-        { visitors: { "baz-ast": append("1") } },
-        { visitors: { "baz-ast": append("2") } },
+        { visitors: { "baz-ast": [append("1")] } },
+        { visitors: { "baz-ast": [append("2")] } },
       ],
       parser: "baz",
     }),
@@ -104,12 +104,14 @@ test("Visitors can require a specific parser", async () => {
       plugins: [
         {
           visitors: {
-            html: {
-              parser: "vue",
-              afterParse: (ast) => {
-                ast.children[0].children[0].name = "span";
+            html: [
+              {
+                parser: "vue",
+                afterParse: (ast) => {
+                  ast.children[0].children[0].name = "span";
+                },
               },
-            },
+            ],
           },
         },
       ],
@@ -126,12 +128,14 @@ test("Visitors work on embedded documents", async () => {
         plugins: [
           {
             visitors: {
-              estree: {
-                parentParser: "vue",
-                afterParse: (ast) => {
-                  ast.node.properties[0].value.name = "baz";
+              estree: [
+                {
+                  parentParser: "vue",
+                  afterParse: (ast) => {
+                    ast.node.properties[0].value.name = "baz";
+                  },
                 },
-              },
+              ],
             },
           },
         ],
