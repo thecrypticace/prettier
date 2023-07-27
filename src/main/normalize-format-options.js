@@ -7,11 +7,13 @@ import {
   getPrinterPluginByAstFormat,
   initParser,
   initPrinter,
+  resolveVisitors,
 } from "./parser-and-printer.js";
 
 const formatOptionsHiddenDefaults = {
   astFormat: "estree",
   printer: {},
+  visitors: [],
   originalText: undefined,
   locStart: null,
   locEnd: null,
@@ -68,6 +70,9 @@ async function normalizeFormatOptions(options, opts = {}) {
   const printer = await initPrinter(printerPlugin, parser.astFormat);
 
   rawOptions.printer = printer;
+
+  const visitors = await resolveVisitors(rawOptions.plugins, parser.astFormat);
+  rawOptions.visitors = visitors;
 
   const pluginDefaults = printerPlugin.defaultOptions
     ? Object.fromEntries(

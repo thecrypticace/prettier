@@ -21,6 +21,19 @@ async function parse(originalText, options) {
     handleParseError(error, originalText);
   }
 
+  // Give each interested plugin a chance to inspect and modify the AST
+  for (const visitor of options.visitors) {
+    if (visitor.parser && visitor.parser !== options.parser) {
+      continue;
+    }
+
+    if (visitor.parentParser && visitor.parentParser !== options.parentParser) {
+      continue;
+    }
+
+    ast = (await visitor.afterParse(ast, options)) ?? ast;
+  }
+
   return { text, ast };
 }
 

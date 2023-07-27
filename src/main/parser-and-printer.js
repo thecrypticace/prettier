@@ -56,9 +56,30 @@ function getPrinterPluginByAstFormat(plugins, astFormat) {
   /* c8 ignore stop */
 }
 
+function getVisitorsByAstFormat(plugins, astFormat) {
+  /* c8 ignore start */
+  if (!astFormat) {
+    throw new Error("astFormat is required.");
+  }
+  /* c8 ignore stop */
+
+  // Having no visitor plugins for a given AST is okay
+  plugins = plugins.filter(
+    (plugin) => plugin.visitors && Object.hasOwn(plugin.visitors, astFormat),
+  );
+
+  return plugins.map((plugin) => plugin.visitors[astFormat]);
+}
+
 function resolveParser({ plugins, parser }) {
   const plugin = getParserPluginByParserName(plugins, parser);
   return initParser(plugin, parser);
+}
+
+async function resolveVisitors(plugins, astFormat) {
+  let visitors = getVisitorsByAstFormat(plugins, astFormat);
+  visitors = await Promise.all(visitors.map(initVisitor));
+  return visitors.filter((visitor) => visitor !== undefined);
 }
 
 function initParser(plugin, parserName) {
@@ -75,10 +96,17 @@ function initPrinter(plugin, astFormat) {
     : printerOrPrinterInitFunction;
 }
 
+function initVisitor(visitorOrVisitorInitFunction) {
+  return typeof visitorOrVisitorInitFunction === "function"
+    ? visitorOrVisitorInitFunction()
+    : visitorOrVisitorInitFunction;
+}
+
 export {
   getParserPluginByParserName,
   getPrinterPluginByAstFormat,
   resolveParser,
+  resolveVisitors,
   initParser,
   initPrinter,
 };

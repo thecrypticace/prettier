@@ -447,8 +447,21 @@ export interface Plugin<T = any> {
   languages?: SupportLanguage[] | undefined;
   parsers?: { [parserName: string]: Parser<T> } | undefined;
   printers?: { [astFormat: string]: Printer<T> } | undefined;
+  visitors?:
+    | { [astFormat: string]: Visitor<T> | VisitorFactory<T> }
+    | undefined;
   options?: SupportOptions | undefined;
   defaultOptions?: Partial<RequiredOptions> | undefined;
+}
+
+export interface VisitorFactory<T> {
+  (): Visitor<T> | Promise<Visitor<T>>;
+}
+
+export interface Visitor<T = any> {
+  parser?: string;
+  parentParser?: string;
+  afterParse?: (ast: T, options: ParserOptions<T>) => T | Promise<T>;
 }
 
 export interface Parser<T = any> {
