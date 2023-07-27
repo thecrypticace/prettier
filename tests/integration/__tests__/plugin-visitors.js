@@ -1,6 +1,6 @@
 import prettier from "../../config/prettier-entry.js";
 
-test("Visitors from the same plugin can modify the AST", async () => {
+test("Visitors can modify the AST", async () => {
   function append(text) {
     return {
       afterParse: (ast) => {
@@ -12,6 +12,7 @@ test("Visitors from the same plugin can modify the AST", async () => {
   expect([
     await prettier.format(".", {
       plugins: [
+        { visitors: { "baz-ast": [append("0")] } },
         {
           parsers: {
             baz: { parse: () => ({ foo: "bar" }), astFormat: "baz-ast" },
@@ -19,36 +20,12 @@ test("Visitors from the same plugin can modify the AST", async () => {
           visitors: { "baz-ast": [append("1")] },
           printers: { "baz-ast": { print: (ast) => ast.getNode().foo } },
         },
-      ],
-      parser: "baz",
-    }),
-  ]).toEqual(["bar1"]);
-});
-
-test("Visitors from other plugins can modify the AST", async () => {
-  function append(text) {
-    return {
-      afterParse: (ast) => {
-        ast.foo += text;
-      },
-    };
-  }
-
-  expect([
-    await prettier.format(".", {
-      plugins: [
-        {
-          parsers: {
-            baz: { parse: () => ({ foo: "bar" }), astFormat: "baz-ast" },
-          },
-          printers: { "baz-ast": { print: (ast) => ast.getNode().foo } },
-        },
-        { visitors: { "baz-ast": [append("1")] } },
         { visitors: { "baz-ast": [append("2")] } },
+        { visitors: { "baz-ast": [append("3")] } },
       ],
       parser: "baz",
     }),
-  ]).toEqual(["bar12"]);
+  ]).toEqual(["bar0123"]);
 });
 
 test("Visitors can completely replace the AST", async () => {
@@ -59,18 +36,20 @@ test("Visitors can completely replace the AST", async () => {
   expect([
     await prettier.format(".", {
       plugins: [
+        { visitors: { "baz-ast": [wrapIn("foo")] } },
         {
           parsers: { baz: { parse: () => ({}), astFormat: "baz-ast" } },
+          visitors: { "baz-ast": [wrapIn("bar")] },
           printers: {
             "baz-ast": { print: (ast) => JSON.stringify(ast.getNode()) },
           },
         },
-        { visitors: { "baz-ast": [wrapIn("foo")] } },
-        { visitors: { "baz-ast": [wrapIn("bar")] } },
+        { visitors: { "baz-ast": [wrapIn("baz")] } },
+        { visitors: { "baz-ast": [wrapIn("qux")] } },
       ],
       parser: "baz",
     }),
-  ]).toEqual(['{"bar":{"foo":{}}}']);
+  ]).toEqual(['{"qux":{"baz":{"bar":{"foo":{}}}}}']);
 });
 
 test("Visitors can modify existing options before being passed to the printer", async () => {
@@ -85,38 +64,18 @@ test("Visitors can modify existing options before being passed to the printer", 
   expect([
     await prettier.format(".", {
       plugins: [
+        { visitors: { "baz-ast": [append("0")] } },
         {
           parsers: { baz: { parse: () => ({}), astFormat: "baz-ast" } },
+          visitors: { "baz-ast": [append("1")] },
           printers: { "baz-ast": { print: (_, opts) => opts.originalText } },
         },
-        { visitors: { "baz-ast": [append("1")] } },
         { visitors: { "baz-ast": [append("2")] } },
+        { visitors: { "baz-ast": [append("3")] } },
       ],
       parser: "baz",
     }),
-  ]).toEqual([".12"]);
-});
-
-test("Visitors can require a specific parser", async () => {
-  expect([
-    await prettier.format(`<template><div>test</div></template>`, {
-      parser: "vue",
-      plugins: [
-        {
-          visitors: {
-            html: [
-              {
-                parser: "vue",
-                afterParse: (ast) => {
-                  ast.children[0].children[0].name = "span";
-                },
-              },
-            ],
-          },
-        },
-      ],
-    }),
-  ]).toEqual([`<template><span>test</span></template>\n`]);
+  ]).toEqual([".0123"]);
 });
 
 test("Visitors work on embedded documents", async () => {
@@ -130,7 +89,6 @@ test("Visitors work on embedded documents", async () => {
             visitors: {
               estree: [
                 {
-                  parentParser: "vue",
                   afterParse: (ast) => {
                     ast.node.properties[0].value.name = "baz";
                   },
@@ -142,4 +100,57 @@ test("Visitors work on embedded documents", async () => {
       },
     ),
   ]).toEqual([`<template><div :style=\"{ foo: baz }\"></div></template>\n`]);
+});
+
+test("Visitors can require a specific parser or parent parser", async () => {
+  let input = `# Title
+
+\`\`\`js
+let test = {foo:bar};
+\`\`\`
+
+\`\`\`vue
+<template><div :style="{foo:bar}"></div></template>
+\`\`\`
+`;
+  let output = `# Title
+
+\`\`\`js
+let test = { foo: baz };
+\`\`\`
+
+\`\`\`vue
+<template><div :style="{ foo: qux }"></div></template>
+\`\`\`
+`;
+
+  expect([
+    await prettier.format(input, {
+      parser: "markdown",
+      plugins: [
+        {
+          visitors: {
+            estree: [
+              // markdown -> code block (js)
+              {
+                parser: "babel",
+                afterParse: (ast) => {
+                  ast.program.body[0].declarations[0].init.properties[0].value.name =
+                    "baz";
+                },
+              },
+
+              // markdown -> code block (vue) -> :style expression
+              {
+                parentParser: "vue",
+                afterParse: (ast) => {
+                  ast.node.properties[0].value.name = "qux";
+                },
+              },
+            ],
+          },
+        },
+      ],
+    }),
+  ]).toEqual([output]);
 });
