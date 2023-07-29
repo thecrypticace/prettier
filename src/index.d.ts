@@ -459,6 +459,10 @@ export interface VisitorInit<T> {
 export interface Visitor<T = any> {
   parser?: string;
   parentParser?: string;
+  beforeParse?: (
+    text: string,
+    options: ParserOptions<T>,
+  ) => string | Promise<string>;
   afterParse?: (
     ast: T,
     options: ParserOptions<T>,

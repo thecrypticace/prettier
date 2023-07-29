@@ -3,9 +3,16 @@ import { resolveParser } from "./parser-and-printer.js";
 
 async function parse(originalText, options) {
   const parser = await resolveParser(options);
-  const text = parser.preprocess
+  let text = parser.preprocess
     ? parser.preprocess(originalText, options)
     : originalText;
+
+  for (const visitor of options.visitors) {
+    if (visitor.beforeParse) {
+      text = await visitor.beforeParse(text, options);
+    }
+  }
+
   options.originalText = text;
 
   let ast;
@@ -24,8 +31,8 @@ async function parse(originalText, options) {
   // Give each interested plugin a chance to inspect and modify the AST
   for (const visitor of options.visitors) {
     if (visitor.afterParse) {
-    ast = (await visitor.afterParse(ast, options)) ?? ast;
-  }
+      ast = (await visitor.afterParse(ast, options)) ?? ast;
+    }
   }
 
   return { text, ast };

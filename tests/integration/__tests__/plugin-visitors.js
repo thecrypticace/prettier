@@ -1,5 +1,34 @@
 import prettier from "../../config/prettier-entry.js";
 
+test("Visitors can modify the text before its passed to parse", async () => {
+  function append(text) {
+    return {
+      beforeParse: (raw) => `${raw}${text}`,
+    };
+  }
+
+  expect([
+    await prettier.format("bar", {
+      plugins: [
+        { visitors: { "baz-ast": [append("0")] } },
+        {
+          parsers: {
+            baz: {
+              parse: (text) => ({ foo: text }),
+              astFormat: "baz-ast",
+            },
+          },
+          visitors: { "baz-ast": [append("1")] },
+          printers: { "baz-ast": { print: (ast) => ast.getNode().foo } },
+        },
+        { visitors: { "baz-ast": [append("2")] } },
+        { visitors: { "baz-ast": [append("3")] } },
+      ],
+      parser: "baz",
+    }),
+  ]).toEqual(["bar0123"]);
+});
+
 test("Visitors can modify the AST", async () => {
   function append(text) {
     return {
@@ -89,6 +118,7 @@ test("Visitors work on embedded documents", async () => {
             visitors: {
               estree: [
                 {
+                  beforeParse: (text) => text.toLocaleUpperCase(),
                   afterParse: (ast) => {
                     ast.node.properties[0].value.name = "baz";
                   },
@@ -99,7 +129,7 @@ test("Visitors work on embedded documents", async () => {
         ],
       },
     ),
-  ]).toEqual([`<template><div :style=\"{ foo: baz }\"></div></template>\n`]);
+  ]).toEqual([`<template><div :style=\"{ FOO: baz }\"></div></template>\n`]);
 });
 
 test("Visitors can require a specific parser or parent parser", async () => {
