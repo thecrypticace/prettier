@@ -71,7 +71,15 @@ async function normalizeFormatOptions(options, opts = {}) {
 
   rawOptions.printer = printer;
 
-  const visitors = await resolveVisitors(rawOptions.plugins, parser.astFormat);
+  let visitors = await resolveVisitors(rawOptions.plugins, parser.astFormat);
+  visitors = visitors.filter((visitor) => {
+    return (
+      (visitor.parser === undefined || visitor.parser === rawOptions.parser) &&
+      (visitor.parentParser === undefined ||
+        visitor.parentParser === rawOptions.parentParser)
+    );
+  });
+
   rawOptions.visitors = visitors;
 
   const pluginDefaults = printerPlugin.defaultOptions
